@@ -46,21 +46,24 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-uint32_t ADC_Buffer[CHANNELS];
-uint16_t data[6];
+uint32_t ADC_Buffer[2*CHANNELS];
+uint16_t data[1024][6];
+uint8_t whos[1024];
+uint32_t* halfOfADC_Buffer = ADC_Buffer + CHANNELS;
+uint16_t index;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
-void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc);
+
 
 void ADC_Start(void)
 {
@@ -68,7 +71,21 @@ void ADC_Start(void)
 	while(HAL_ADCEx_Calibration_Start(&hadc2) != HAL_OK);
 	HAL_Delay(10);
 	HAL_ADC_Start(&hadc2);
-	HAL_ADCEx_MultiModeStart_DMA(&hadc1, ADC_Buffer, (uint32_t) CHANNELS);
+	HAL_ADCEx_MultiModeStart_DMA(&hadc1, ADC_Buffer, (uint32_t)2 * CHANNELS);
+}
+
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	if(hadc)
+	{
+		for(uint8_t i = 0; i < 3;i++)
+		{
+			data[index][2*i] = (uint16_t) ADC_Buffer[i];
+			data[index][2*i+1] = (uint16_t) (ADC_Buffer[i] >> 16);
+		}
+		whos[index] = 0;
+		index = (index + 1) % 1024;
+	}
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
@@ -77,9 +94,11 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	{
 		for(uint8_t i = 0; i < 3;i++)
 		{
-			data[2*i] = (uint16_t) ADC_Buffer[i];
-			data[2*i+1] = (uint16_t) (ADC_Buffer[i] >> 16);
+			data[index][2*i] = (uint16_t) halfOfADC_Buffer[i];
+			data[index][2*i+1] = (uint16_t) (halfOfADC_Buffer[i] >> 16);
 		}
+		whos[index] = 1;
+		index = (index + 1) % 1024;
 	}
 }
 
@@ -134,7 +153,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  index = 0;
   /* USER CODE END Init */
 
   /* Configure the system clock */
