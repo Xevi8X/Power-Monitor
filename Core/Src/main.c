@@ -35,6 +35,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define CHANNELS 3
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -45,7 +46,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-uint32_t ADC_Buffer[3];
+uint32_t ADC_Buffer[CHANNELS];
 uint16_t data[6];
 /* USER CODE END PV */
 
@@ -67,8 +68,21 @@ void ADC_Start(void)
 	while(HAL_ADCEx_Calibration_Start(&hadc2) != HAL_OK);
 	HAL_Delay(10);
 	HAL_ADC_Start(&hadc2);
-	HAL_ADCEx_MultiModeStart_DMA(&hadc1, ADC_Buffer, (uint32_t) 3);
+	HAL_ADCEx_MultiModeStart_DMA(&hadc1, ADC_Buffer, (uint32_t) CHANNELS);
 }
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	if(hadc)
+	{
+		for(uint8_t i = 0; i < 3;i++)
+		{
+			data[2*i] = (uint16_t) ADC_Buffer[i];
+			data[2*i+1] = (uint16_t) (ADC_Buffer[i] >> 16);
+		}
+	}
+}
+
 
 int __io_putchar(int ch)
 {
@@ -100,17 +114,6 @@ uint32_t getCurrentMicros(void)
   return (m * 1000 + (u * 1000) / tms);
 }
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
-{
-	if(hadc)
-	{
-		for(uint8_t i = 0; i < 3;i++)
-		{
-			data[2*i] = (uint16_t) ADC_Buffer[i];
-			data[2*i+1] = (uint16_t) (ADC_Buffer[i] >> 16);
-		}
-	}
-}
 
 
 /* USER CODE END 0 */
