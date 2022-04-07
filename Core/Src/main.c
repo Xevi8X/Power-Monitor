@@ -37,7 +37,7 @@
 /* USER CODE BEGIN PD */
 #define CHANNELS 3
 #define OVERSAMPLING 8
-#define BUFFERSIZE 1024
+#define BUFFERSIZE 128
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -50,10 +50,12 @@
 /* USER CODE BEGIN PV */
 uint32_t ADC_Buffer[2*CHANNELS];
 uint32_t* halfOfADC_Buffer = ADC_Buffer + CHANNELS;
-uint16_t data[BUFFERSIZE][6];
+int16_t data[BUFFERSIZE][CHANNELS*2];
 uint32_t time[BUFFERSIZE];
 uint16_t indexCircBuffer;
 uint8_t oversamplingIndex;
+uint16_t calibZeros[CHANNELS*2] = {0};
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -81,6 +83,32 @@ void ADC_Start(void)
 	HAL_ADCEx_MultiModeStart_DMA(&hadc1, ADC_Buffer, (uint32_t)2 * CHANNELS);
 }
 
+void CalibrateZero()
+{
+
+	printf("Starting calibration...\n");
+	printf("Press button when voltage and current is equal to 0\n");
+	HAL_Delay(2000);
+
+	__disable_irq();
+	while(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) != GPIO_PIN_RESET);
+
+	uint32_t sum[CHANNELS*2] = {0};
+	for(uint16_t i = 0; i < BUFFERSIZE;i++)
+	{
+		for(uint8_t j = 0; j < CHANNELS*2;j++)
+		{
+			sum[j] += data[i][j];
+		}
+	}
+	for(uint8_t j = 0; j < CHANNELS*2;j++)
+	{
+		calibZeros[j] = (uint16_t) (sum[j]/BUFFERSIZE);
+	}
+	printf("Calibration completed\n");
+	__enable_irq();
+}
+
 void takeData(uint32_t* buffer)
 {
 	if(oversamplingIndex == OVERSAMPLING)
@@ -92,11 +120,10 @@ void takeData(uint32_t* buffer)
 		{
 			indexCircBuffer = 0;
 			HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-			printf("%d\n",HAL_GetTick());
 		}
 		for(uint8_t i = 0; i < CHANNELS*2;i++)
 		{
-			data[indexCircBuffer][i] = 0;
+			data[indexCircBuffer][i] = -calibZeros[i];
 		}
 	}
 	for(uint8_t i = 0; i < CHANNELS;i++)
@@ -193,6 +220,7 @@ int main(void)
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
   ADC_Start();
+  CalibrateZero();
   /* USER CODE END 2 */
 
   /* Infinite loop */
