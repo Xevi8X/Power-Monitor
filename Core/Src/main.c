@@ -36,6 +36,8 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define CHANNELS 3
+#define OVERSAMPLING 8
+#define BUFFERSIZE 1024
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -47,17 +49,22 @@
 
 /* USER CODE BEGIN PV */
 uint32_t ADC_Buffer[2*CHANNELS];
-uint16_t data[1024][6];
-uint8_t whos[1024];
 uint32_t* halfOfADC_Buffer = ADC_Buffer + CHANNELS;
-uint16_t index;
+uint16_t data[BUFFERSIZE][6];
+uint32_t time[BUFFERSIZE];
+uint16_t indexCircBuffer;
+uint8_t oversamplingIndex;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
+void ADC_Start(void);
+void takeData(uint32_t* buffer);
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc);
+int __io_putchar(int ch);
+uint32_t getCurrentMicros(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -74,17 +81,37 @@ void ADC_Start(void)
 	HAL_ADCEx_MultiModeStart_DMA(&hadc1, ADC_Buffer, (uint32_t)2 * CHANNELS);
 }
 
+void takeData(uint32_t* buffer)
+{
+	if(oversamplingIndex == OVERSAMPLING)
+	{
+		oversamplingIndex = 0;
+		time[indexCircBuffer] = getCurrentMicros();
+		indexCircBuffer++;
+		if(indexCircBuffer == BUFFERSIZE)
+		{
+			indexCircBuffer = 0;
+			HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+			printf("%d\n",HAL_GetTick());
+		}
+		for(uint8_t i = 0; i < CHANNELS*2;i++)
+		{
+			data[indexCircBuffer][i] = 0;
+		}
+	}
+	for(uint8_t i = 0; i < CHANNELS;i++)
+	{
+		data[indexCircBuffer][2*i] += (uint16_t) buffer[i];
+		data[indexCircBuffer][2*i+1] += (uint16_t) (buffer[i] >> 16);
+	}
+	oversamplingIndex++;
+}
+
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	if(hadc)
 	{
-		for(uint8_t i = 0; i < 3;i++)
-		{
-			data[index][2*i] = (uint16_t) ADC_Buffer[i];
-			data[index][2*i+1] = (uint16_t) (ADC_Buffer[i] >> 16);
-		}
-		whos[index] = 0;
-		index = (index + 1) % 1024;
+		takeData(ADC_Buffer);
 	}
 }
 
@@ -92,13 +119,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	if(hadc)
 	{
-		for(uint8_t i = 0; i < 3;i++)
-		{
-			data[index][2*i] = (uint16_t) halfOfADC_Buffer[i];
-			data[index][2*i+1] = (uint16_t) (halfOfADC_Buffer[i] >> 16);
-		}
-		whos[index] = 1;
-		index = (index + 1) % 1024;
+		takeData(halfOfADC_Buffer);
 	}
 }
 
@@ -153,7 +174,8 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  index = 0;
+  indexCircBuffer = 0;
+  oversamplingIndex = 0;
   /* USER CODE END Init */
 
   /* Configure the system clock */
