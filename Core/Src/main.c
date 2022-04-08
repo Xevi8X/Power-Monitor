@@ -25,7 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -37,7 +37,8 @@
 /* USER CODE BEGIN PD */
 #define CHANNELS 3
 #define OVERSAMPLING 8
-#define BUFFERSIZE 128
+#define BUFFERSIZE 256
+#define EXPECTEDFREQ 50
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -55,6 +56,11 @@ uint32_t time[BUFFERSIZE];
 uint16_t indexCircBuffer;
 uint8_t oversamplingIndex;
 uint16_t calibZeros[CHANNELS*2] = {0};
+uint64_t RMS[6] = {0};
+//0,1,2 - V
+//3,4,5 - A
+uint8_t correctionRMS;
+
 
 /* USER CODE END PV */
 
@@ -90,6 +96,7 @@ void CalibrateZero()
 	printf("Press button when voltage and current is equal to 0\n");
 	HAL_Delay(2000);
 
+	while(indexCircBuffer!= 0);
 	__disable_irq();
 	while(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) != GPIO_PIN_RESET);
 
@@ -99,12 +106,22 @@ void CalibrateZero()
 		for(uint8_t j = 0; j < CHANNELS*2;j++)
 		{
 			sum[j] += data[i][j];
+			data[i][j] = 0;
 		}
 	}
 	for(uint8_t j = 0; j < CHANNELS*2;j++)
 	{
 		calibZeros[j] = (uint16_t) (sum[j]/BUFFERSIZE);
+		data[0][j] = -calibZeros[j];
+		RMS[j] = 0;
 	}
+
+	uint32_t timeOfBufforing = time[BUFFERSIZE-1]- time[0];
+	uint32_t halfPhase = 1000000/EXPECTEDFREQ/2;
+	uint16_t halfPeriods = timeOfBufforing/halfPhase;
+
+	while(time[BUFFERSIZE-1-correctionRMS] > time[0] + halfPhase*halfPeriods) correctionRMS++;
+
 	printf("Calibration completed\n");
 	__enable_irq();
 }
@@ -115,6 +132,10 @@ void takeData(uint32_t* buffer)
 	{
 		oversamplingIndex = 0;
 		time[indexCircBuffer] = getCurrentMicros();
+		for(uint8_t i = 0; i < CHANNELS*2;i++)
+		{
+			RMS[i] += data[indexCircBuffer][i]*data[indexCircBuffer][i];
+		}
 		indexCircBuffer++;
 		if(indexCircBuffer == BUFFERSIZE)
 		{
@@ -123,6 +144,7 @@ void takeData(uint32_t* buffer)
 		}
 		for(uint8_t i = 0; i < CHANNELS*2;i++)
 		{
+			RMS[i] -= data[(indexCircBuffer+correctionRMS)% BUFFERSIZE][i]*data[(indexCircBuffer+correctionRMS)% BUFFERSIZE][i];
 			data[indexCircBuffer][i] = -calibZeros[i];
 		}
 	}
@@ -203,6 +225,7 @@ int main(void)
   /* USER CODE BEGIN Init */
   indexCircBuffer = 0;
   oversamplingIndex = 0;
+  correctionRMS = 0;
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -228,7 +251,8 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+	  HAL_Delay(1000);
+	  printf("RMS: %lf %lf %lf %lf %lf %lf\n", sqrt(RMS[0]/(BUFFERSIZE-correctionRMS)),sqrt(RMS[1]/(BUFFERSIZE-correctionRMS)),sqrt(RMS[2]/(BUFFERSIZE-correctionRMS)),sqrt(RMS[3]/(BUFFERSIZE-correctionRMS)),sqrt(RMS[4]/(BUFFERSIZE-correctionRMS)),sqrt(RMS[5]/(BUFFERSIZE-correctionRMS)));
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
