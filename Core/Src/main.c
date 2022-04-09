@@ -59,12 +59,13 @@ uint32_t time[BUFFERSIZE];
 uint16_t indexCircBuffer;
 uint8_t oversamplingIndex;
 uint16_t calibZeros[CHANNELS*2] = {0};
-uint64_t RMS[6] = {0};
+uint64_t RMS[2*CHANNELS] = {0};
 //0,1,2 - V
 //3,4,5 - A
 uint8_t correctionRMS;
 uint16_t calibCounter;
-int64_t P[3] = {0};
+int64_t P[CHANNELS] = {0};
+uint8_t sign[2*CHANNELS][BUFFERSIZE/8] = {0};
 
 
 /* USER CODE END PV */
@@ -73,7 +74,10 @@ int64_t P[3] = {0};
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 void ADC_Start(void);
+void CalcRMScorection();
 void takeData(uint32_t* buffer);
+void setSign(uint8_t channel, uint16_t index,uint8_t value);
+float calcXOR(uint8_t channel);
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc);
 int __io_putchar(int ch);
@@ -173,8 +177,10 @@ void takeData(uint32_t* buffer)
 		for(uint8_t i = 0; i < CHANNELS*2;i++)
 		{
 			RMS[i] -= data[(indexCircBuffer+correctionRMS)% BUFFERSIZE][i]*data[(indexCircBuffer+ correctionRMS)% BUFFERSIZE][i];
+			setSign(i,indexCircBuffer, (data[indexCircBuffer][i]> 0) ? 1: 0);
 			data[indexCircBuffer][i] = -calibZeros[i];
 		}
+
 
 	}
 	for(uint8_t i = 0; i < CHANNELS;i++)
@@ -183,6 +189,37 @@ void takeData(uint32_t* buffer)
 		data[indexCircBuffer][2*i+1] += (uint16_t) (buffer[i] >> 16);
 	}
 	oversamplingIndex++;
+}
+
+void setSign(uint8_t channel, uint16_t index,uint8_t value)
+{
+	if(value == 1)
+	{
+		sign[channel][index/8] |= (1 << (index % 8));
+	}
+	else
+	{
+		sign[channel][index/8] &= ~(1 << (index % 8));
+	}
+}
+
+float calcXOR(uint8_t channel)
+{
+	uint16_t count = 0;
+	for(uint8_t i = 0; i < BUFFERSIZE/8; i++)
+	{
+		uint8_t xor = (sign[channel*2][i]) ^ (sign[channel*2 + 1][i]);
+		while (xor > 0)
+		{
+			count += xor & 1;
+			xor >>= 1;
+		}
+	}
+	float angle = count;
+	angle /= BUFFERSIZE;
+	angle = 1 - angle;
+	angle *= 180.0f;
+	return angle;
 }
 
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc)
@@ -294,7 +331,7 @@ int main(void)
 	float Q1 = sqrt(S1*S1-P1*P1);
 
 	printf("RMS: V: %.1f,  A:%.2f,  P:%.2f,  Q:%.2f,  S:%.2f\n",V1 ,A1, P1, Q1, S1);
-
+	printf("Fi: %f\n", calcXOR(0));
 
   }
   /* USER CODE END 3 */
