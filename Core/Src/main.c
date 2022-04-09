@@ -37,8 +37,11 @@
 /* USER CODE BEGIN PD */
 #define CHANNELS 3
 #define OVERSAMPLING 8
-#define BUFFERSIZE 256
+#define BUFFERSIZE 128
 #define EXPECTEDFREQ 50
+#define CALIBRATIONPERIOD 128
+#define CURRENTSCALE 362.2
+#define VOLTAGESCALE 34.8
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -60,6 +63,8 @@ uint64_t RMS[6] = {0};
 //0,1,2 - V
 //3,4,5 - A
 uint8_t correctionRMS;
+uint16_t calibCounter;
+int64_t P[3] = {0};
 
 
 /* USER CODE END PV */
@@ -89,19 +94,29 @@ void ADC_Start(void)
 	HAL_ADCEx_MultiModeStart_DMA(&hadc1, ADC_Buffer, (uint32_t)2 * CHANNELS);
 }
 
+void CalcRMScorection()
+{
+		while(indexCircBuffer!= 0);
+		__disable_irq();
+		uint32_t timeOfBufforing = time[BUFFERSIZE-1]- time[0];
+		uint32_t halfPhase = 1000000/EXPECTEDFREQ/2;
+		uint16_t halfPeriods = timeOfBufforing/halfPhase;
+
+		while(time[BUFFERSIZE-1-correctionRMS] > time[0] + halfPhase*halfPeriods) correctionRMS++;
+		__enable_irq();
+}
+
 void CalibrateZero()
 {
 
 	printf("Starting calibration...\n");
-	printf("Press button when voltage and current is equal to 0\n");
-	HAL_Delay(2000);
-
+	//printf("Press button when voltage and current is equal to 0\n");
 	while(indexCircBuffer!= 0);
 	__disable_irq();
-	while(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) != GPIO_PIN_RESET);
+	//while(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) != GPIO_PIN_RESET);
 
-	uint32_t sum[CHANNELS*2] = {0};
-	for(uint16_t i = 0; i < BUFFERSIZE;i++)
+	int32_t sum[CHANNELS*2] = {0};
+	for(uint16_t i = correctionRMS; i < BUFFERSIZE;i++)
 	{
 		for(uint8_t j = 0; j < CHANNELS*2;j++)
 		{
@@ -111,16 +126,15 @@ void CalibrateZero()
 	}
 	for(uint8_t j = 0; j < CHANNELS*2;j++)
 	{
-		calibZeros[j] = (uint16_t) (sum[j]/BUFFERSIZE);
+		calibZeros[j] += (sum[j]/(BUFFERSIZE-correctionRMS));
 		data[0][j] = -calibZeros[j];
 		RMS[j] = 0;
 	}
+	for(uint8_t j = 0; j < CHANNELS;j++)
+	{
+		P[j] = 0;
+	}
 
-	uint32_t timeOfBufforing = time[BUFFERSIZE-1]- time[0];
-	uint32_t halfPhase = 1000000/EXPECTEDFREQ/2;
-	uint16_t halfPeriods = timeOfBufforing/halfPhase;
-
-	while(time[BUFFERSIZE-1-correctionRMS] > time[0] + halfPhase*halfPeriods) correctionRMS++;
 
 	printf("Calibration completed\n");
 	__enable_irq();
@@ -136,17 +150,32 @@ void takeData(uint32_t* buffer)
 		{
 			RMS[i] += data[indexCircBuffer][i]*data[indexCircBuffer][i];
 		}
+		for(uint8_t i = 0; i < CHANNELS;i++)
+		{
+			P[i] += data[indexCircBuffer][2*i]*data[indexCircBuffer][2*i+1];
+		}
 		indexCircBuffer++;
 		if(indexCircBuffer == BUFFERSIZE)
 		{
 			indexCircBuffer = 0;
-			HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+			calibCounter++;
+			if(calibCounter == CALIBRATIONPERIOD)
+			{
+				calibCounter = 0;
+				CalibrateZero();
+			}
+			//HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+		}
+		for(uint8_t i = 0; i < CHANNELS;i++)
+		{
+			P[i] -= data[(indexCircBuffer+correctionRMS)% BUFFERSIZE][2*i]*data[(indexCircBuffer+correctionRMS)% BUFFERSIZE][2*i+1];
 		}
 		for(uint8_t i = 0; i < CHANNELS*2;i++)
 		{
-			RMS[i] -= data[(indexCircBuffer+correctionRMS)% BUFFERSIZE][i]*data[(indexCircBuffer+correctionRMS)% BUFFERSIZE][i];
+			RMS[i] -= data[(indexCircBuffer+correctionRMS)% BUFFERSIZE][i]*data[(indexCircBuffer+ correctionRMS)% BUFFERSIZE][i];
 			data[indexCircBuffer][i] = -calibZeros[i];
 		}
+
 	}
 	for(uint8_t i = 0; i < CHANNELS;i++)
 	{
@@ -225,7 +254,8 @@ int main(void)
   /* USER CODE BEGIN Init */
   indexCircBuffer = 0;
   oversamplingIndex = 0;
-  correctionRMS = 0;
+  correctionRMS = 1;
+  calibCounter = 0;
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -243,7 +273,9 @@ int main(void)
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
   ADC_Start();
+  HAL_Delay(1500);
   CalibrateZero();
+  CalcRMScorection();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -251,9 +283,19 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	  HAL_Delay(1000);
-	  printf("RMS: %lf %lf %lf %lf %lf %lf\n", sqrt(RMS[0]/(BUFFERSIZE-correctionRMS)),sqrt(RMS[1]/(BUFFERSIZE-correctionRMS)),sqrt(RMS[2]/(BUFFERSIZE-correctionRMS)),sqrt(RMS[3]/(BUFFERSIZE-correctionRMS)),sqrt(RMS[4]/(BUFFERSIZE-correctionRMS)),sqrt(RMS[5]/(BUFFERSIZE-correctionRMS)));
+
     /* USER CODE BEGIN 3 */
+	HAL_Delay(1000);
+	float V1 = sqrt((float)RMS[0]/(BUFFERSIZE-correctionRMS))/VOLTAGESCALE;
+	float A1 = sqrt((float)RMS[1]/(BUFFERSIZE-correctionRMS))/CURRENTSCALE;
+	float S1 = V1*A1;
+	float P1 = -P[0];
+	P1 /= ((BUFFERSIZE-correctionRMS)*(VOLTAGESCALE*CURRENTSCALE));
+	float Q1 = sqrt(S1*S1-P1*P1);
+
+	printf("RMS: V: %.1f,  A:%.2f,  P:%.2f,  Q:%.2f,  S:%.2f\n",V1 ,A1, P1, Q1, S1);
+
+
   }
   /* USER CODE END 3 */
 }

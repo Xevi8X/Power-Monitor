@@ -60,8 +60,8 @@ all: main-build
 main-build: MultiADCs.elf secondary-outputs
 
 # Tool invocations
-MultiADCs.elf MultiADCs.map: $(OBJS) $(USER_OBJS) C:\Users\Wojtek\OneDrive\ -\ Politechnika\ Warszawska\STM\MultiADCs\STM32F103RBTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "MultiADCs.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"C:\Users\Wojtek\OneDrive - Politechnika Warszawska\STM\MultiADCs\STM32F103RBTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="MultiADCs.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
+MultiADCs.elf MultiADCs.map: $(OBJS) $(USER_OBJS) F:\OD_PW\OneDrive\ -\ Politechnika\ Warszawska\STM\MultiADCs\STM32F103RBTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "MultiADCs.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"F:\OD_PW\OneDrive - Politechnika Warszawska\STM\MultiADCs\STM32F103RBTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="MultiADCs.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
