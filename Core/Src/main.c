@@ -66,6 +66,7 @@ uint8_t correctionRMS;
 uint16_t calibCounter;
 int64_t P[CHANNELS] = {0};
 uint8_t sign[2*CHANNELS][BUFFERSIZE/8] = {0};
+uint8_t disableSetting;
 
 
 /* USER CODE END PV */
@@ -193,6 +194,7 @@ void takeData(uint32_t* buffer)
 
 void setSign(uint8_t channel, uint16_t index,uint8_t value)
 {
+	if(disableSetting != 0) return;
 	if(value == 1)
 	{
 		sign[channel][index/8] |= (1 << (index % 8));
@@ -205,20 +207,29 @@ void setSign(uint8_t channel, uint16_t index,uint8_t value)
 
 float calcXOR(uint8_t channel)
 {
+	disableSetting = 1;
 	uint16_t count = 0;
-	for(uint8_t i = 0; i < BUFFERSIZE/8; i++)
+	uint16_t counter = 0;
+	for(uint8_t i = 0; i < (BUFFERSIZE)/8; i++)
 	{
 		uint8_t xor = (sign[channel*2][i]) ^ (sign[channel*2 + 1][i]);
 		while (xor > 0)
 		{
-			count += xor & 1;
+			if(counter < BUFFERSIZE - correctionRMS)
+			{
+				count += xor & 1;
+			}
 			xor >>= 1;
+			counter++;
 		}
 	}
+
+
 	float angle = count;
-	angle /= BUFFERSIZE;
+	angle /= (BUFFERSIZE-correctionRMS);
 	angle = 1 - angle;
 	angle *= 180.0f;
+	disableSetting = 0;
 	return angle;
 }
 
@@ -293,6 +304,7 @@ int main(void)
   oversamplingIndex = 0;
   correctionRMS = 1;
   calibCounter = 0;
+  disableSetting = 0;
   /* USER CODE END Init */
 
   /* Configure the system clock */
