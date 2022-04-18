@@ -42,6 +42,7 @@
 #define CALIBRATIONPERIOD 64
 #define CURRENTSCALE 362.2
 #define VOLTAGESCALE 34.8
+#define SHOWDATAPERIOD 1000
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -67,6 +68,7 @@ uint16_t calibCounter;
 int64_t P[CHANNELS] = {0};
 uint8_t sign[2*CHANNELS][BUFFERSIZE/8] = {0};
 uint8_t disableSetting;
+
 
 
 /* USER CODE END PV */
@@ -120,22 +122,40 @@ void CalibrateZero()
 	__disable_irq();
 	//printf("t,A,B");
 
-	int32_t sum[CHANNELS*2] = {0};
-	for(uint16_t i = correctionRMS; i < BUFFERSIZE;i++)
-	{
-		//printf("%lu,%lu,%lu\n",time[i],data[i][0],data[i][1]);
-		for(uint8_t j = 0; j < CHANNELS*2;j++)
-		{
-			sum[j] += data[i][j];
-			data[i][j] = 0;
-		}
-	}
+	//Mean
+	//	int32_t sum[CHANNELS*2] = {0};
+	//	for(uint16_t i = correctionRMS; i < BUFFERSIZE;i++)
+	//	{
+	//		//printf("%lu,%lu,%lu\n",time[i],data[i][0],data[i][1]);
+	//		for(uint8_t j = 0; j < CHANNELS*2;j++)
+	//		{
+	//			sum[j] += data[i][j];
+	//			data[i][j] = 0;
+	//		}
+	//	}
+	//	for(uint8_t j = 0; j < CHANNELS*2;j++)
+	//	{
+	//		calibZeros[j] += (sum[j]/(BUFFERSIZE-correctionRMS));
+	//		data[0][j] = -calibZeros[j];
+	//		RMS[j] = 0;
+	//	}
+
+	//Vpp calibration
+	int32_t min = 1 << 16, max = 0;
 	for(uint8_t j = 0; j < CHANNELS*2;j++)
 	{
-		calibZeros[j] += (sum[j]/(BUFFERSIZE-correctionRMS));
+		for(uint16_t i = correctionRMS; i < BUFFERSIZE;i++)
+		{
+			if(max < data[i][j]) max = data[i][j];
+			if(min > data[i][j]) min = data[i][j];
+			data[i][j] = 0;
+		}
+		calibZeros[j] += (min+max)/2;
 		data[0][j] = -calibZeros[j];
 		RMS[j] = 0;
 	}
+
+
 	for(uint8_t j = 0; j < CHANNELS;j++)
 	{
 		P[j] = 0;
@@ -164,12 +184,12 @@ void takeData(uint32_t* buffer)
 		if(indexCircBuffer == BUFFERSIZE)
 		{
 			indexCircBuffer = 0;
-			calibCounter++;
-			if(calibCounter == CALIBRATIONPERIOD)
-			{
-				calibCounter = 0;
-				CalibrateZero();
-			}
+			//calibCounter++;
+			//if(calibCounter == CALIBRATIONPERIOD)
+			//{
+			//	calibCounter = 0;
+			//	CalibrateZero();
+			//}
 			//HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 		}
 		for(uint8_t i = 0; i < CHANNELS;i++)
@@ -301,6 +321,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+  uint32_t lastGetTick;
   indexCircBuffer = 0;
   oversamplingIndex = 0;
   correctionRMS = 1;
@@ -335,16 +356,25 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	HAL_Delay(1000);
-	float V1 = sqrt((float)RMS[1]/(BUFFERSIZE-correctionRMS))/VOLTAGESCALE;
-	float A1 = sqrt((float)RMS[0]/(BUFFERSIZE-correctionRMS))/CURRENTSCALE;
-	float S1 = V1*A1;
-	float P1 = P[0];
-	P1 /= ((BUFFERSIZE-correctionRMS)*(VOLTAGESCALE*CURRENTSCALE));
-	float Q1 = sqrt(S1*S1-P1*P1);
+	  if(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET)
+	  {
+		  CalibrateZero();
+	  }
 
-	printf("RMS: V: %.1f,  A:%.2f,  P:%.2f,  Q:%.2f,  S:%.2f\n",V1 ,A1, P1, Q1, S1);
-	printf("Fi: %f\n", calcXOR(0));
+	  if((HAL_GetTick()-lastGetTick)>=SHOWDATAPERIOD)
+	  {
+		  float V1 = sqrt((float)RMS[1]/(BUFFERSIZE-correctionRMS))/VOLTAGESCALE;
+		  float A1 = sqrt((float)RMS[0]/(BUFFERSIZE-correctionRMS))/CURRENTSCALE;
+		  float S1 = V1*A1;
+		  float P1 = P[0];
+		  P1 /= ((BUFFERSIZE-correctionRMS)*(VOLTAGESCALE*CURRENTSCALE));
+		  float Q1 = sqrt(S1*S1-P1*P1);
+
+		  printf("RMS: V: %.1f,  A:%.2f,  P:%.2f,  Q:%.2f,  S:%.2f\n",V1 ,A1, P1, Q1, S1);
+		  printf("Fi: %f\n", calcXOR(0));
+
+		  lastGetTick=HAL_GetTick();
+	  }
 
   }
   /* USER CODE END 3 */
