@@ -39,7 +39,7 @@
 #define OVERSAMPLING 8
 #define BUFFERSIZE 128
 #define EXPECTEDFREQ 50
-#define CALIBRATIONPERIOD 128
+#define CALIBRATIONPERIOD 64
 #define CURRENTSCALE 362.2
 #define VOLTAGESCALE 34.8
 /* USER CODE END PD */
@@ -118,11 +118,12 @@ void CalibrateZero()
 	//printf("Press button when voltage and current is equal to 0\n");
 	while(indexCircBuffer!= 0);
 	__disable_irq();
-	//while(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) != GPIO_PIN_RESET);
+	//printf("t,A,B");
 
 	int32_t sum[CHANNELS*2] = {0};
 	for(uint16_t i = correctionRMS; i < BUFFERSIZE;i++)
 	{
+		//printf("%lu,%lu,%lu\n",time[i],data[i][0],data[i][1]);
 		for(uint8_t j = 0; j < CHANNELS*2;j++)
 		{
 			sum[j] += data[i][j];
@@ -139,8 +140,8 @@ void CalibrateZero()
 	{
 		P[j] = 0;
 	}
-
-
+	//printf("Waiting for button click");
+	//while(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) != GPIO_PIN_RESET);
 	printf("Calibration completed\n");
 	__enable_irq();
 }
@@ -227,7 +228,7 @@ float calcXOR(uint8_t channel)
 
 	float angle = count;
 	angle /= (BUFFERSIZE-correctionRMS);
-	angle = 1 - angle;
+	//angle = 1 - angle;
 	angle *= 180.0f;
 	disableSetting = 0;
 	return angle;
@@ -335,10 +336,10 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	HAL_Delay(1000);
-	float V1 = sqrt((float)RMS[0]/(BUFFERSIZE-correctionRMS))/VOLTAGESCALE;
-	float A1 = sqrt((float)RMS[1]/(BUFFERSIZE-correctionRMS))/CURRENTSCALE;
+	float V1 = sqrt((float)RMS[1]/(BUFFERSIZE-correctionRMS))/VOLTAGESCALE;
+	float A1 = sqrt((float)RMS[0]/(BUFFERSIZE-correctionRMS))/CURRENTSCALE;
 	float S1 = V1*A1;
-	float P1 = -P[0];
+	float P1 = P[0];
 	P1 /= ((BUFFERSIZE-correctionRMS)*(VOLTAGESCALE*CURRENTSCALE));
 	float Q1 = sqrt(S1*S1-P1*P1);
 
