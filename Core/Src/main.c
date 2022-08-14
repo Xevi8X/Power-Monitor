@@ -20,12 +20,14 @@
 #include "main.h"
 #include "adc.h"
 #include "dma.h"
+#include "i2c.h"
 #include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <math.h>
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -40,8 +42,8 @@
 #define BUFFERSIZE 128
 #define EXPECTEDFREQ 50
 #define CALIBRATIONPERIOD 4096
-#define CURRENTSCALE 437.7604
-#define VOLTAGESCALE 37.0529
+#define CURRENTSCALE 54.757
+#define VOLTAGESCALE 4.6329
 #define SHOWDATAPERIOD 1000
 /* USER CODE END PD */
 
@@ -57,6 +59,7 @@ uint32_t ADC_Buffer[2*CHANNELS];
 uint32_t* halfOfADC_Buffer = ADC_Buffer + CHANNELS;
 int16_t data[BUFFERSIZE][CHANNELS*2];
 uint32_t time[BUFFERSIZE];
+int32_t  Tinterval;
 uint16_t indexCircBuffer;
 uint8_t oversamplingIndex;
 uint16_t calibZeros[CHANNELS*2] = {0};
@@ -108,8 +111,9 @@ void CalcRMScorection()
 		uint32_t timeOfBufforing = time[BUFFERSIZE-1]- time[0];
 		uint32_t halfPhase = 1000000/EXPECTEDFREQ/2;
 		uint16_t halfPeriods = timeOfBufforing/halfPhase;
-
-		while(time[BUFFERSIZE-1-correctionRMS] > time[0] + halfPhase*halfPeriods) correctionRMS++;
+		Tinterval = halfPhase*halfPeriods;
+		while(time[BUFFERSIZE-1-correctionRMS] > time[0] + Tinterval) correctionRMS++;
+		Tinterval = time[BUFFERSIZE-1-correctionRMS] - time[0];
 		__enable_irq();
 }
 
@@ -301,6 +305,19 @@ uint32_t getCurrentMicros(void)
   return (m * 1000 + (u * 1000) / tms);
 }
 
+void showControls(float Q)
+{
+	uint8_t i = ((int) Q) / 250;
+
+	for(uint8_t j = 0; j < 8; j++)
+	{
+		if(j < i)
+			PCF8574_turnOn(j);
+		else
+			PCF8574_turnOff(j);
+	}
+
+}
 
 
 /* USER CODE END 0 */
@@ -342,6 +359,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_ADC1_Init();
   MX_ADC2_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   ADC_Start();
   HAL_Delay(1500);
@@ -363,19 +381,20 @@ int main(void)
 
 	  if((HAL_GetTick()-lastGetTick)>=SHOWDATAPERIOD)
 	  {
-		  float V1 = sqrt((float)RMS[1]/(BUFFERSIZE-correctionRMS))/VOLTAGESCALE;
-		  float A1 = sqrt((float)RMS[0]/(BUFFERSIZE-correctionRMS))/CURRENTSCALE;
+		  float V1 = sqrt(((float)RMS[1])/(BUFFERSIZE - correctionRMS)) / (VOLTAGESCALE * OVERSAMPLING);
+		  float A1 = sqrt(((float)RMS[0])/(BUFFERSIZE - correctionRMS)) / (CURRENTSCALE * OVERSAMPLING);
 		  float S1 = V1*A1;
 		  float P1 = P[0];
-		  P1 /= ((BUFFERSIZE-correctionRMS)*(VOLTAGESCALE*CURRENTSCALE));
+		  P1 /= ((Tinterval)*(VOLTAGESCALE*CURRENTSCALE));
 		  float Q1 = sqrt(S1*S1-P1*P1);
 
 		  printf("RMS: V: %.1f,  A:%.2f,  P:%.2f,  Q:%.2f,  S:%.2f\n",V1 ,A1, P1, Q1, S1);
 		  printf("Fi: %f\n", calcXOR(0));
 
+		  showControls(Q1);
+
 		  lastGetTick=HAL_GetTick();
 	  }
-
   }
   /* USER CODE END 3 */
 }
