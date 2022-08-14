@@ -28,6 +28,8 @@
 /* USER CODE BEGIN Includes */
 #include <math.h>
 #include <stdio.h>
+#include "smart_common.h"
+#include "power_params.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -37,14 +39,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define CHANNELS 3
-#define OVERSAMPLING 8
-#define BUFFERSIZE 128
-#define EXPECTEDFREQ 50
-#define CALIBRATIONPERIOD 4096
-#define CURRENTSCALE 54.757
-#define VOLTAGESCALE 4.6329
-#define SHOWDATAPERIOD 1000
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -55,22 +50,6 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-uint32_t ADC_Buffer[2*CHANNELS];
-uint32_t* halfOfADC_Buffer = ADC_Buffer + CHANNELS;
-int16_t data[BUFFERSIZE][CHANNELS*2];
-uint32_t time[BUFFERSIZE];
-int32_t  Tinterval;
-uint16_t indexCircBuffer;
-uint8_t oversamplingIndex;
-uint16_t calibZeros[CHANNELS*2] = {0};
-uint64_t RMS[2*CHANNELS] = {0};
-//0,1,2 - V
-//3,4,5 - A
-uint8_t correctionRMS;
-uint16_t calibCounter;
-int64_t P[CHANNELS] = {0};
-uint8_t sign[2*CHANNELS][BUFFERSIZE/8] = {0};
-uint8_t disableSetting;
 
 
 
@@ -79,15 +58,7 @@ uint8_t disableSetting;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-void ADC_Start(void);
-void CalcRMScorection();
-void takeData(uint32_t* buffer);
-void setSign(uint8_t channel, uint16_t index,uint8_t value);
-float calcXOR(uint8_t channel);
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
-void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc);
-int __io_putchar(int ch);
-uint32_t getCurrentMicros(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -95,215 +66,9 @@ uint32_t getCurrentMicros(void);
 
 
 
-void ADC_Start(void)
-{
-	while(HAL_ADCEx_Calibration_Start(&hadc1) != HAL_OK);
-	while(HAL_ADCEx_Calibration_Start(&hadc2) != HAL_OK);
-	HAL_Delay(10);
-	HAL_ADC_Start(&hadc2);
-	HAL_ADCEx_MultiModeStart_DMA(&hadc1, ADC_Buffer, (uint32_t)2 * CHANNELS);
-}
-
-void CalcRMScorection()
-{
-		while(indexCircBuffer!= 0);
-		__disable_irq();
-		uint32_t timeOfBufforing = time[BUFFERSIZE-1]- time[0];
-		uint32_t halfPhase = 1000000/EXPECTEDFREQ/2;
-		uint16_t halfPeriods = timeOfBufforing/halfPhase;
-		Tinterval = halfPhase*halfPeriods;
-		while(time[BUFFERSIZE-1-correctionRMS] > time[0] + Tinterval) correctionRMS++;
-		Tinterval = time[BUFFERSIZE-1-correctionRMS] - time[0];
-		__enable_irq();
-}
-
-void CalibrateZero()
-{
-
-	printf("Starting calibration...\n");
-	//printf("Press button when voltage and current is equal to 0\n");
-	while(indexCircBuffer!= 0);
-	__disable_irq();
-	//printf("t,A,B");
-
-	//Mean
-	//	int32_t sum[CHANNELS*2] = {0};
-	//	for(uint16_t i = correctionRMS; i < BUFFERSIZE;i++)
-	//	{
-	//		//printf("%lu,%lu,%lu\n",time[i],data[i][0],data[i][1]);
-	//		for(uint8_t j = 0; j < CHANNELS*2;j++)
-	//		{
-	//			sum[j] += data[i][j];
-	//			data[i][j] = 0;
-	//		}
-	//	}
-	//	for(uint8_t j = 0; j < CHANNELS*2;j++)
-	//	{
-	//		calibZeros[j] += (sum[j]/(BUFFERSIZE-correctionRMS));
-	//		data[0][j] = -calibZeros[j];
-	//		RMS[j] = 0;
-	//	}
-
-	//Vpp calibration
-	int32_t min = 1 << 16, max = 0;
-	for(uint8_t j = 0; j < CHANNELS*2;j++)
-	{
-		for(uint16_t i = correctionRMS; i < BUFFERSIZE;i++)
-		{
-			if(max < data[i][j]) max = data[i][j];
-			if(min > data[i][j]) min = data[i][j];
-			data[i][j] = 0;
-		}
-		calibZeros[j] += (min+max)/2;
-		data[0][j] = -calibZeros[j];
-		RMS[j] = 0;
-	}
 
 
-	for(uint8_t j = 0; j < CHANNELS;j++)
-	{
-		P[j] = 0;
-	}
-	//printf("Waiting for button click");
-	//while(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) != GPIO_PIN_RESET);
-	printf("Calibration completed\n");
-	__enable_irq();
-}
 
-void takeData(uint32_t* buffer)
-{
-	if(oversamplingIndex == OVERSAMPLING)
-	{
-		oversamplingIndex = 0;
-		time[indexCircBuffer] = getCurrentMicros();
-		for(uint8_t i = 0; i < CHANNELS*2;i++)
-		{
-			RMS[i] += data[indexCircBuffer][i]*data[indexCircBuffer][i];
-		}
-		for(uint8_t i = 0; i < CHANNELS;i++)
-		{
-			P[i] += data[indexCircBuffer][2*i]*data[indexCircBuffer][2*i+1];
-		}
-		indexCircBuffer++;
-		if(indexCircBuffer == BUFFERSIZE)
-		{
-			indexCircBuffer = 0;
-			//calibCounter++;
-			//if(calibCounter == CALIBRATIONPERIOD)
-			//{
-			//	calibCounter = 0;
-			//	CalibrateZero();
-			//}
-			//HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-		}
-		for(uint8_t i = 0; i < CHANNELS;i++)
-		{
-			P[i] -= data[(indexCircBuffer+correctionRMS)% BUFFERSIZE][2*i]*data[(indexCircBuffer+correctionRMS)% BUFFERSIZE][2*i+1];
-		}
-		for(uint8_t i = 0; i < CHANNELS*2;i++)
-		{
-			RMS[i] -= data[(indexCircBuffer+correctionRMS)% BUFFERSIZE][i]*data[(indexCircBuffer+ correctionRMS)% BUFFERSIZE][i];
-			setSign(i,indexCircBuffer, (data[indexCircBuffer][i]> 0) ? 1: 0);
-			data[indexCircBuffer][i] = -calibZeros[i];
-		}
-
-
-	}
-	for(uint8_t i = 0; i < CHANNELS;i++)
-	{
-		data[indexCircBuffer][2*i] += (uint16_t) buffer[i];
-		data[indexCircBuffer][2*i+1] += (uint16_t) (buffer[i] >> 16);
-	}
-	oversamplingIndex++;
-}
-
-void setSign(uint8_t channel, uint16_t index,uint8_t value)
-{
-	if(disableSetting != 0) return;
-	if(value == 1)
-	{
-		sign[channel][index/8] |= (1 << (index % 8));
-	}
-	else
-	{
-		sign[channel][index/8] &= ~(1 << (index % 8));
-	}
-}
-
-float calcXOR(uint8_t channel)
-{
-	disableSetting = 1;
-	uint16_t count = 0;
-	uint16_t counter = 0;
-	for(uint8_t i = 0; i < (BUFFERSIZE)/8; i++)
-	{
-		uint8_t xor = (sign[channel*2][i]) ^ (sign[channel*2 + 1][i]);
-		while (xor > 0)
-		{
-			if(counter < BUFFERSIZE - correctionRMS)
-			{
-				count += xor & 1;
-			}
-			xor >>= 1;
-			counter++;
-		}
-	}
-
-
-	float angle = count;
-	angle /= (BUFFERSIZE-correctionRMS);
-	//angle = 1 - angle;
-	angle *= 180.0f;
-	disableSetting = 0;
-	return angle;
-}
-
-void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc)
-{
-	if(hadc)
-	{
-		takeData(ADC_Buffer);
-	}
-}
-
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
-{
-	if(hadc)
-	{
-		takeData(halfOfADC_Buffer);
-	}
-}
-
-
-int __io_putchar(int ch)
-{
-  if (ch == '\n') {
-    __io_putchar('\r');
-  }
-
-  HAL_UART_Transmit(&huart2, (uint8_t*)&ch, 1, HAL_MAX_DELAY);
-
-  return 1;
-}
-
-static inline uint32_t LL_SYSTICK_IsActiveCounterFlag(void)
-{
-  return ((SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk) == (SysTick_CTRL_COUNTFLAG_Msk));
-}
-
-uint32_t getCurrentMicros(void)
-{
-  /* Ensure COUNTFLAG is reset by reading SysTick control and status register */
-  LL_SYSTICK_IsActiveCounterFlag();
-  uint32_t m = HAL_GetTick();
-  const uint32_t tms = SysTick->LOAD + 1;
-  __IO uint32_t u = tms - SysTick->VAL;
-  if (LL_SYSTICK_IsActiveCounterFlag()) {
-    m = HAL_GetTick();
-    u = tms - SysTick->VAL;
-  }
-  return (m * 1000 + (u * 1000) / tms);
-}
 
 void showControls(float Q)
 {
@@ -316,7 +81,6 @@ void showControls(float Q)
 		else
 			PCF8574_turnOff(j);
 	}
-
 }
 
 
@@ -338,19 +102,15 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+
   uint32_t lastGetTick;
-  indexCircBuffer = 0;
-  oversamplingIndex = 0;
-  correctionRMS = 1;
-  calibCounter = 0;
-  disableSetting = 0;
   /* USER CODE END Init */
 
   /* Configure the system clock */
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
+  powerParamInit();
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -381,17 +141,12 @@ int main(void)
 
 	  if((HAL_GetTick()-lastGetTick)>=SHOWDATAPERIOD)
 	  {
-		  float V1 = sqrt(((float)RMS[1])/(BUFFERSIZE - correctionRMS)) / (VOLTAGESCALE * OVERSAMPLING);
-		  float A1 = sqrt(((float)RMS[0])/(BUFFERSIZE - correctionRMS)) / (CURRENTSCALE * OVERSAMPLING);
-		  float S1 = V1*A1;
-		  float P1 = P[0];
-		  P1 /= ((Tinterval)*(VOLTAGESCALE*CURRENTSCALE));
-		  float Q1 = sqrt(S1*S1-P1*P1);
 
-		  printf("RMS: V: %.1f,  A:%.2f,  P:%.2f,  Q:%.2f,  S:%.2f\n",V1 ,A1, P1, Q1, S1);
+
+		  printf("RMS: V: %.1f,  I:%.2f,  P:%.2f,  Q:%.2f,  S:%.2f\n",getV(0) ,getI(0), getP(0), getQ(0), getS(0));
 		  printf("Fi: %f\n", calcXOR(0));
 
-		  showControls(Q1);
+		  showControls(getQ(0));
 
 		  lastGetTick=HAL_GetTick();
 	  }

@@ -21,7 +21,7 @@
 #include "adc.h"
 
 /* USER CODE BEGIN 0 */
-
+#include "power_params.h"
 /* USER CODE END 0 */
 
 ADC_HandleTypeDef hadc1;
@@ -321,5 +321,28 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* adcHandle)
 }
 
 /* USER CODE BEGIN 1 */
+void ADC_Start(void)
+{
+	while(HAL_ADCEx_Calibration_Start(&hadc1) != HAL_OK);
+	while(HAL_ADCEx_Calibration_Start(&hadc2) != HAL_OK);
+	HAL_Delay(10);
+	HAL_ADC_Start(&hadc2);
+	HAL_ADCEx_MultiModeStart_DMA(&hadc1, getADC_Buffer(), (uint32_t)2 * CHANNELS);
+}
 
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	if(hadc)
+	{
+		takeData(getADC_Buffer());
+	}
+}
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	if(hadc)
+	{
+		takeData(gethalfOfADC_Buffer());
+	}
+}
 /* USER CODE END 1 */
