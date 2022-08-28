@@ -28,6 +28,7 @@
 /* USER CODE BEGIN Includes */
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "smart_common.h"
 #include "power_params.h"
 /* USER CODE END Includes */
@@ -93,7 +94,7 @@ void showControls(float Q)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+	Params* param;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -125,6 +126,7 @@ int main(void)
   HAL_Delay(1500);
   CalibrateZero();
   CalcRMScorection();
+  param = (Params*)malloc(sizeof(Params));
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -142,15 +144,16 @@ int main(void)
 	  if((HAL_GetTick()-lastGetTick)>=SHOWDATAPERIOD)
 	  {
 
+		  getParams(param,0);
+		  printf("RMS: V: %.1f,  I:%.2f,  P:%.2f,  Q:%.2f,  S:%.2f\n",param->V ,param->I, param->P, param->Q, param->S);
+		  printf("Fi: %f\n", param->fi);
 
-		  printf("RMS: V: %.1f,  I:%.2f,  P:%.2f,  Q:%.2f,  S:%.2f\n",getV(0) ,getI(0), getP(0), getQ(0), getS(0));
-		  printf("Fi: %f\n", calcXOR(0));
-
-		  showControls(getQ(0));
+		  showControls(param->Q);
 
 		  lastGetTick=HAL_GetTick();
 	  }
   }
+  free(param);
   /* USER CODE END 3 */
 }
 

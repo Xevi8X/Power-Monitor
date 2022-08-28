@@ -13,7 +13,7 @@
 #include <stdio.h>
 
 
-#define CHANNELS 3
+#define CHANNELS 1
 #define OVERSAMPLING 8
 #define BUFFERSIZE 128
 #define EXPECTEDFREQ 50
@@ -21,6 +21,11 @@
 #define CURRENTSCALE 54.757
 #define VOLTAGESCALE 4.6329
 #define SHOWDATAPERIOD 1000
+
+typedef struct
+{
+	float V,I,P,S,Q,fi;
+} Params;
 
 
 void powerParamInit();
@@ -37,5 +42,6 @@ float getI(uint8_t channel);
 float getP(uint8_t channel);
 float getS(uint8_t channel);
 float getQ(uint8_t channel);
+void getParams(Params* p, uint8_t channel);
 
 #endif /* INC_POWER_PARAMS_H_ */

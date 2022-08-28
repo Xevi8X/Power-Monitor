@@ -187,7 +187,7 @@ float getI(uint8_t channel)
 
 float getP(uint8_t channel)
 {
-	return P[channel] / ((Tinterval)*(VOLTAGESCALE*CURRENTSCALE));
+	return P[channel] /(BUFFERSIZE - correctionRMS)/ (VOLTAGESCALE *CURRENTSCALE * OVERSAMPLING * OVERSAMPLING);
 }
 
 float getS(uint8_t channel)
@@ -200,6 +200,18 @@ float getQ(uint8_t channel)
 	float P = getP(channel);
 	float S = getS(channel);
 	return sqrt(S*S-P*P);
+}
+
+void getParams(Params* p, uint8_t channel)
+{
+
+	p->V = getV(channel);
+	p->I = getI(channel);
+	p->P = getP(channel);
+	p->S = p->V*p->I;
+	p->Q = sqrt(p->S*p->S-p->P*p->P);
+	p->fi = calcXOR(channel);
+	return;
 }
 
 
