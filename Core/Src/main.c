@@ -139,11 +139,11 @@ int main(void)
 	  if(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET)
 	  {
 		  CalibrateZero();
+		  HAL_Delay(3000);
 	  }
 
 	  if((HAL_GetTick()-lastGetTick)>=SHOWDATAPERIOD)
 	  {
-
 		  getParams(param,0);
 		  printf("RMS: V: %.1f,  I:%.2f,  P:%.2f,  Q:%.2f,  S:%.2f\n",param->V ,param->I, param->P, param->Q, param->S);
 		  printf("Fi: %f\n", param->fi);

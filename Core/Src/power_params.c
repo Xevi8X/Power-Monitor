@@ -81,6 +81,7 @@ void takeData(uint32_t* buffer)
 {
 	if(oversamplingIndex == OVERSAMPLING)
 	{
+
 		oversamplingIndex = 0;
 		time[indexCircBuffer] = getCurrentMicros();
 		for(uint8_t i = 0; i < CHANNELS*2;i++)
@@ -113,8 +114,6 @@ void takeData(uint32_t* buffer)
 			setSign(i,indexCircBuffer, (data[indexCircBuffer][i]> 0) ? 1: 0);
 			data[indexCircBuffer][i] = -calibZeros[i];
 		}
-
-
 	}
 	for(uint8_t i = 0; i < CHANNELS;i++)
 	{
