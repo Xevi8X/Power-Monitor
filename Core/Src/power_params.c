@@ -186,7 +186,7 @@ float getI(uint8_t channel)
 
 float getP(uint8_t channel)
 {
-	return P[channel] /(BUFFERSIZE - correctionRMS)/ (VOLTAGESCALE *CURRENTSCALE * OVERSAMPLING * OVERSAMPLING);
+	return P[channel] /((BUFFERSIZE - correctionRMS) * VOLTAGESCALE * CURRENTSCALE * OVERSAMPLING * OVERSAMPLING);
 }
 
 float getS(uint8_t channel)

@@ -13,13 +13,13 @@
 #include <stdio.h>
 
 
-#define CHANNELS 1
+#define CHANNELS 3
 #define OVERSAMPLING 8
 #define BUFFERSIZE 128
 #define EXPECTEDFREQ 50
 #define CALIBRATIONPERIOD 4096
-#define CURRENTSCALE 54.757
-#define VOLTAGESCALE 0.7
+#define CURRENTSCALE 45.275
+#define VOLTAGESCALE 4.35
 #define SHOWDATAPERIOD 1000
 
 typedef struct
