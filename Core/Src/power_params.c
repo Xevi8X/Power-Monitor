@@ -7,6 +7,7 @@
 
 #include "power_params.h"
 #include <math.h>
+#include "i2c.h"
 
 uint32_t ADC_Buffer[2*CHANNELS];
 uint32_t* halfOfADC_Buffer = ADC_Buffer + CHANNELS;
@@ -24,7 +25,10 @@ uint16_t calibCounter;
 int64_t P[CHANNELS] = {0};
 uint8_t sign[2*CHANNELS][BUFFERSIZE/8] = {0};
 uint8_t disableSetting;
-
+uint8_t positive = 0;
+uint8_t crossingIndex = 0;
+uint16_t crossingPoint[8];
+uint8_t pinToTurnOff[8];
 
 void powerParamInit()
 {
@@ -51,7 +55,7 @@ void CalcRMScorection()
 void CalibrateZero()
 {
 
-	printf("Starting calibration...\n");
+	printf("\nStarting calibration...\n");
 	while(indexCircBuffer!= 0);
 	__disable_irq();
 
@@ -93,17 +97,7 @@ void takeData(uint32_t* buffer)
 			P[i] += data[indexCircBuffer][2*i]*data[indexCircBuffer][2*i+1];
 		}
 		indexCircBuffer++;
-		if(indexCircBuffer == BUFFERSIZE)
-		{
-			indexCircBuffer = 0;
-			//calibCounter++;
-			//if(calibCounter == CALIBRATIONPERIOD)
-			//{
-			//	calibCounter = 0;
-			//	CalibrateZero();
-			//}
-			//HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-		}
+		if(indexCircBuffer == BUFFERSIZE) indexCircBuffer = 0;
 		for(uint8_t i = 0; i < CHANNELS;i++)
 		{
 			P[i] -= data[(indexCircBuffer+correctionRMS)% BUFFERSIZE][2*i]*data[(indexCircBuffer+correctionRMS)% BUFFERSIZE][2*i+1];
@@ -111,7 +105,28 @@ void takeData(uint32_t* buffer)
 		for(uint8_t i = 0; i < CHANNELS*2;i++)
 		{
 			RMS[i] -= data[(indexCircBuffer+correctionRMS)% BUFFERSIZE][i]*data[(indexCircBuffer+ correctionRMS)% BUFFERSIZE][i];
-			setSign(i,indexCircBuffer, (data[indexCircBuffer][i]> 0) ? 1: 0);
+			if(data[indexCircBuffer][i]> 0)
+			{
+				setSign(i,indexCircBuffer, 1);
+				if(positive == 0)
+				{
+					for(int j = 0; j < 8; j++) if(pinToTurnOff[j] > 0)
+					{
+						PCF8574_turnOff(j);
+						pinToTurnOff[j] = 0;
+					}
+					crossingPoint[crossingIndex] = indexCircBuffer;
+					crossingIndex = (crossingIndex+1) % 8;
+				}
+				positive = 1;
+			}
+			else
+			{
+
+				setSign(i,indexCircBuffer, 0);
+				positive = 0;
+			}
+
 			data[indexCircBuffer][i] = -calibZeros[i];
 		}
 	}
@@ -154,14 +169,46 @@ float calcXOR(uint8_t channel)
 			counter++;
 		}
 	}
-
-
-	float angle = count;
-	angle /= (BUFFERSIZE-correctionRMS);
-	//angle = 1 - angle;
+	float angle = (float)count;
 	angle *= 180.0f;
+	angle /= (BUFFERSIZE-correctionRMS);
+
+
+	if(isCapacitive(channel) > 0) angle *=(-1.0f);
+
 	disableSetting = 0;
 	return angle;
+}
+
+uint8_t isCapacitive(uint8_t channel)
+{
+	int res = 0;
+		for(int i = 0; i < 8; i++)
+		{
+			if(data[crossingPoint[i]][channel*2] > 0) res++;
+			else res--;
+		}
+	return res;
+}
+
+
+void printBufforData()
+{
+	printf("\nStarting printing out data...\n");
+	while(indexCircBuffer!= 0);
+	__disable_irq();
+
+	printf("t,V,I\n");
+	for(int i = correctionRMS; i < BUFFERSIZE; i++) printf("%lu,%f,%f\n",time[i],((float)data[i][1])/(VOLTAGESCALE * OVERSAMPLING),((float)data[i][0])/(CURRENTSCALE * OVERSAMPLING));
+
+	printf("Printing completed\n");
+	__enable_irq();
+}
+
+void turnOffInZero(uint8_t pin)
+{
+	PCF8574_check(pin);
+	pinToTurnOff[pin] = 1;
 }
 
 uint32_t* getADC_Buffer()
@@ -198,7 +245,9 @@ float getQ(uint8_t channel)
 {
 	float P = getP(channel);
 	float S = getS(channel);
-	return sqrt(S*S-P*P);
+	float Q = sqrt(S*S-P*P);
+	if(isCapacitive(channel) > 0) Q *=(-1.0f);
+	return Q;
 }
 
 void getParams(Params* p, uint8_t channel)
@@ -207,8 +256,8 @@ void getParams(Params* p, uint8_t channel)
 	p->V = getV(channel);
 	p->I = getI(channel);
 	p->P = getP(channel);
-	p->S = p->V*p->I;
-	p->Q = sqrt(p->S*p->S-p->P*p->P);
+	p->S = getS(channel);
+	p->Q = getQ(channel);
 	p->fi = calcXOR(channel);
 	return;
 }

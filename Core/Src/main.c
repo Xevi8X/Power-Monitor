@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include "smart_common.h"
 #include "power_params.h"
+#include "logic.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -126,6 +127,7 @@ int main(void)
   HAL_Delay(1500);
   CalibrateZero();
   CalcRMScorection();
+  searchCompensators();
   param = (Params*)malloc(sizeof(Params));
   /* USER CODE END 2 */
 
@@ -138,17 +140,18 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	  if(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET)
 	  {
+		  printBufforData();
 		  CalibrateZero();
-		  HAL_Delay(3000);
+		  HAL_Delay(1000);
 	  }
 
 	  if((HAL_GetTick()-lastGetTick)>=SHOWDATAPERIOD)
 	  {
 		  getParams(param,0);
-		  printf("RMS: V: %.1f,  I:%.2f,  P:%.2f,  Q:%.2f,  S:%.2f\n",param->V ,param->I, param->P, param->Q, param->S);
+		  printf("\nRMS: V: %.1f,  I:%.2f,  P:%.2f,  Q:%.2f,  S:%.2f\n",param->V ,param->I, param->P, param->Q, param->S);
 		  printf("Fi: %f\n", param->fi);
 
-		  showControls(param->Q);
+		 // showControls(param->Q);
 
 		  lastGetTick=HAL_GetTick();
 	  }

@@ -15,11 +15,11 @@
 
 #define CHANNELS 3
 #define OVERSAMPLING 8
-#define BUFFERSIZE 128
+#define BUFFERSIZE 512
 #define EXPECTEDFREQ 50
 #define CALIBRATIONPERIOD 4096
-#define CURRENTSCALE 45.275
-#define VOLTAGESCALE 4.35
+#define CURRENTSCALE 51.47
+#define VOLTAGESCALE 5.19
 #define SHOWDATAPERIOD 1000
 
 typedef struct
@@ -34,6 +34,9 @@ void CalibrateZero();
 void takeData(uint32_t* buffer);
 void setSign(uint8_t channel, uint16_t index,uint8_t value);
 float calcXOR(uint8_t channel);
+uint8_t isCapacitive(uint8_t channel);
+void printBufforData();
+void turnOffInZero(uint8_t pin);
 uint32_t* getADC_Buffer();
 uint32_t* gethalfOfADC_Buffer();
 
