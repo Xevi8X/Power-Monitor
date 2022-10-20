@@ -66,26 +66,6 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-
-
-
-
-
-
-void showControls(float Q)
-{
-	uint8_t i = ((int) Q) / 250;
-
-	for(uint8_t j = 0; j < 8; j++)
-	{
-		if(j < i)
-			PCF8574_turnOn(j);
-		else
-			PCF8574_turnOff(j);
-	}
-}
-
-
 /* USER CODE END 0 */
 
 /**
@@ -148,11 +128,8 @@ int main(void)
 	  if((HAL_GetTick()-lastGetTick)>=SHOWDATAPERIOD)
 	  {
 		  getParams(param,0);
-		  printf("\nRMS: V: %.1f,  I:%.2f,  P:%.2f,  Q:%.2f,  S:%.2f\n",param->V ,param->I, param->P, param->Q, param->S);
-		  printf("Fi: %f\n", param->fi);
-
-		 // showControls(param->Q);
-
+		  printf("@1#%.2f;%.2f;%.2f;%.2f;%.2f;%.2f\n",param->V ,param->I, param->P, param->Q, param->S,param->S > 20 ? param->fi : 0.0f);
+		  printf("@2#%u;%u\n",PCF8574_getState(), getState());
 		  lastGetTick=HAL_GetTick();
 	  }
   }

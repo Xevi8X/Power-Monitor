@@ -43,9 +43,12 @@ void MX_I2C1_Init(void);
 /* USER CODE BEGIN Prototypes */
 void PCF8574_turnOn(uint8_t pin);
 void PCF8574_turnOff(uint8_t pin);
+void PCF8574_turnOffPins(uint8_t pins);
+void PCF8574_setState(uint8_t pins);
 void PCF8574_toggle(uint8_t pin);
 void PCF8574_check(uint8_t pin);
 void PCF8574_update();
+uint8_t PCF8574_getState();
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus

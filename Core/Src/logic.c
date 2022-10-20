@@ -9,6 +9,14 @@
 
 float compensators[8]={0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f};
 
+//0 - auto, 1 - manual
+uint8_t state = 0;
+
+uint8_t getState()
+{
+	return state;
+}
+
 void searchCompensators()
 {
 	printf("\nStarting searching compensators\n");
@@ -34,4 +42,15 @@ void searchCompensators()
 		turnOffInZero(i);
 		HAL_Delay(300);
 	}
+	sendCompensatorsData();
+}
+
+void sendCompensatorsData()
+{
+	printf("@6#");
+	for(int i = 0; i < 8; i++)
+	{
+		printf("%.2f;",compensators[i]);
+	}
+	printf("\n");
 }

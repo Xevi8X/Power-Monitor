@@ -28,7 +28,7 @@ uint8_t disableSetting;
 uint8_t positive = 0;
 uint8_t crossingIndex = 0;
 uint16_t crossingPoint[8];
-uint8_t pinToTurnOff[8];
+uint8_t pinToTurnOff = 0;
 
 void powerParamInit()
 {
@@ -55,7 +55,7 @@ void CalcRMScorection()
 void CalibrateZero()
 {
 
-	printf("\nStarting calibration...\n");
+	printf("Starting calibration...\n");
 	while(indexCircBuffer!= 0);
 	__disable_irq();
 
@@ -110,11 +110,7 @@ void takeData(uint32_t* buffer)
 				setSign(i,indexCircBuffer, 1);
 				if(positive == 0)
 				{
-					for(int j = 0; j < 8; j++) if(pinToTurnOff[j] > 0)
-					{
-						PCF8574_turnOff(j);
-						pinToTurnOff[j] = 0;
-					}
+					PCF8574_turnOffPins(pinToTurnOff);
 					crossingPoint[crossingIndex] = indexCircBuffer;
 					crossingIndex = (crossingIndex+1) % 8;
 				}
@@ -194,13 +190,13 @@ uint8_t isCapacitive(uint8_t channel)
 
 void printBufforData()
 {
-	printf("\nStarting printing out data...\n");
+	printf("Starting printing out data...\n");
 	while(indexCircBuffer!= 0);
 	__disable_irq();
-
 	printf("t,V,I\n");
-	for(int i = correctionRMS; i < BUFFERSIZE; i++) printf("%lu,%f,%f\n",time[i],((float)data[i][1])/(VOLTAGESCALE * OVERSAMPLING),((float)data[i][0])/(CURRENTSCALE * OVERSAMPLING));
-
+	printf("@3#\n");
+	for(int i = correctionRMS; i < BUFFERSIZE; i++) printf("@4#%lu;%f;%f\n",time[i],((float)data[i][1])/(VOLTAGESCALE * OVERSAMPLING),((float)data[i][0])/(CURRENTSCALE * OVERSAMPLING));
+	printf("@5#\n");
 	printf("Printing completed\n");
 	__enable_irq();
 }
@@ -208,7 +204,7 @@ void printBufforData()
 void turnOffInZero(uint8_t pin)
 {
 	PCF8574_check(pin);
-	pinToTurnOff[pin] = 1;
+	pinToTurnOff |= (1 << pin);
 }
 
 uint32_t* getADC_Buffer()

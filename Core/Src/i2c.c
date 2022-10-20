@@ -126,6 +126,18 @@ void PCF8574_turnOff(uint8_t pin)
 	PCF8574_update();
 }
 
+void PCF8574_turnOffPins(uint8_t pins)
+{
+	pinState |= pins;
+	PCF8574_update();
+}
+
+void PCF8574_setState(uint8_t pins)
+{
+	pinState = ~pins;
+	PCF8574_update();
+}
+
 void PCF8574_toggle(uint8_t pin)
 {
 	PCF8574_check(pin);
@@ -145,5 +157,10 @@ void PCF8574_check(uint8_t pin)
 void PCF8574_update()
 {
 	HAL_I2C_Master_Transmit(&hi2c1,PCF8574_ADDRESS,(uint8_t*)&pinState,sizeof(pinState),HAL_MAX_DELAY);
+}
+
+uint8_t PCF8574_getState()
+{
+	return ~pinState;
 }
 /* USER CODE END 1 */
