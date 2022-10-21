@@ -8,6 +8,7 @@
 #include "power_params.h"
 #include <math.h>
 #include "i2c.h"
+#include "logic.h"
 
 uint32_t ADC_Buffer[2*CHANNELS];
 uint32_t* halfOfADC_Buffer = ADC_Buffer + CHANNELS;
@@ -111,6 +112,7 @@ void takeData(uint32_t* buffer)
 				if(positive == 0)
 				{
 					PCF8574_turnOffPins(pinToTurnOff);
+					pinToTurnOff = 0;
 					crossingPoint[crossingIndex] = indexCircBuffer;
 					crossingIndex = (crossingIndex+1) % 8;
 				}
@@ -205,6 +207,54 @@ void turnOffInZero(uint8_t pin)
 {
 	PCF8574_check(pin);
 	pinToTurnOff |= (1 << pin);
+}
+
+void execCommand(uint8_t commandNo, uint8_t arg)
+{
+	switch(commandNo)
+	{
+		case 100:
+		{
+			CalibrateZero();
+			break;
+		}
+		case 101:
+		{
+			printf("@2#%u;%u\n",PCF8574_getState(), getState());
+			break;
+		}
+		case 102:
+		{
+			setState(arg);
+			printf("@2#%u;%u\n",PCF8574_getState(), getState());
+			break;
+		}
+		case 103:
+		{
+			sendCompensatorsData();
+			break;
+		}
+		case 104:
+		{
+			printBufforData();
+			break;
+		}
+		case 105:
+		{
+			if(getState() == 1)
+			{
+				PCF8574_setState(arg);
+				printf("@2#%u;%u\n",PCF8574_getState(), getState());
+			}
+			break;
+		}
+		case 106:
+		{
+			searchCompensators();
+			break;
+		}
+
+	}
 }
 
 uint32_t* getADC_Buffer()

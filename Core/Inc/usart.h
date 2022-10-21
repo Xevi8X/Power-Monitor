@@ -41,7 +41,9 @@ extern UART_HandleTypeDef huart2;
 void MX_USART2_UART_Init(void);
 
 /* USER CODE BEGIN Prototypes */
-
+void UART_Start();
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size);
+void handleRecivedData();
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus

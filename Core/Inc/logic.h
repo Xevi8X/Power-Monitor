@@ -9,6 +9,7 @@
 #define INC_LOGIC_H_
 
 uint8_t getState();
+void setState(uint8_t val);
 void searchCompensators();
 void sendCompensatorsData();
 

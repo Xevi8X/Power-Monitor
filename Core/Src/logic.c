@@ -17,6 +17,12 @@ uint8_t getState()
 	return state;
 }
 
+void setState(uint8_t val)
+{
+	if(val == 0 || val == 1)
+		state = val;
+}
+
 void searchCompensators()
 {
 	printf("\nStarting searching compensators\n");

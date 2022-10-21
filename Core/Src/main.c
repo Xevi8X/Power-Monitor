@@ -59,6 +59,7 @@
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -102,13 +103,18 @@ int main(void)
   MX_ADC1_Init();
   MX_ADC2_Init();
   MX_I2C1_Init();
+
+  /* Initialize interrupts */
+  MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
   ADC_Start();
+  UART_Start();
   HAL_Delay(1500);
   CalibrateZero();
   CalcRMScorection();
-  searchCompensators();
+  //searchCompensators();
   param = (Params*)malloc(sizeof(Params));
+  searchCompensators();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -120,16 +126,15 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	  if(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET)
 	  {
-		  printBufforData();
-		  CalibrateZero();
-		  HAL_Delay(1000);
+
 	  }
+
+	  handleRecivedData();
 
 	  if((HAL_GetTick()-lastGetTick)>=SHOWDATAPERIOD)
 	  {
 		  getParams(param,0);
 		  printf("@1#%.2f;%.2f;%.2f;%.2f;%.2f;%.2f\n",param->V ,param->I, param->P, param->Q, param->S,param->S > 20 ? param->fi : 0.0f);
-		  printf("@2#%u;%u\n",PCF8574_getState(), getState());
 		  lastGetTick=HAL_GetTick();
 	  }
   }
@@ -180,6 +185,20 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief NVIC Configuration.
+  * @retval None
+  */
+static void MX_NVIC_Init(void)
+{
+  /* DMA1_Channel6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
+  /* USART2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(USART2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(USART2_IRQn);
 }
 
 /* USER CODE BEGIN 4 */
