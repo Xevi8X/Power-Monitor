@@ -135,6 +135,7 @@ int main(void)
 	  {
 		  getParams(param,0);
 		  printf("@1#%.2f;%.2f;%.2f;%.2f;%.2f;%.2f\n",param->V ,param->I, param->P, param->Q, param->S,param->S > 20 ? param->fi : 0.0f);
+		  compensate();
 		  lastGetTick=HAL_GetTick();
 	  }
   }

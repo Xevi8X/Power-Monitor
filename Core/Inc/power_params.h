@@ -37,6 +37,8 @@ float calcXOR(uint8_t channel);
 uint8_t isCapacitive(uint8_t channel);
 void printBufforData();
 void turnOffInZero(uint8_t pin);
+void turnOnInZero(uint8_t pin);
+void softSwitch(uint8_t state);
 void execCommand(uint8_t commandNo, uint8_t arg);
 
 uint32_t* getADC_Buffer();

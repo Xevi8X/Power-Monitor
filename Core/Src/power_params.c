@@ -30,6 +30,7 @@ uint8_t positive = 0;
 uint8_t crossingIndex = 0;
 uint16_t crossingPoint[8];
 uint8_t pinToTurnOff = 0;
+uint8_t pinToTurnOn = 0;
 
 void powerParamInit()
 {
@@ -111,7 +112,11 @@ void takeData(uint32_t* buffer)
 				setSign(i,indexCircBuffer, 1);
 				if(positive == 0)
 				{
-					PCF8574_turnOffPins(pinToTurnOff);
+					uint8_t pins = PCF8574_getState();
+					pins &= (~pinToTurnOff);
+					pins |= pinToTurnOn;
+					PCF8574_setState(pins);
+					pinToTurnOff = 0;
 					pinToTurnOff = 0;
 					crossingPoint[crossingIndex] = indexCircBuffer;
 					crossingIndex = (crossingIndex+1) % 8;
@@ -207,6 +212,18 @@ void turnOffInZero(uint8_t pin)
 {
 	PCF8574_check(pin);
 	pinToTurnOff |= (1 << pin);
+}
+
+void turnOnInZero(uint8_t pin)
+{
+	PCF8574_check(pin);
+	pinToTurnOn |= (1 << pin);
+}
+
+void softSwitch(uint8_t state)
+{
+	pinToTurnOff = ~state;
+	pinToTurnOn = state;
 }
 
 void execCommand(uint8_t commandNo, uint8_t arg)

@@ -163,4 +163,5 @@ uint8_t PCF8574_getState()
 {
 	return ~pinState;
 }
+
 /* USER CODE END 1 */
