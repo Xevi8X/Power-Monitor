@@ -26,9 +26,9 @@ uint16_t calibCounter;
 int64_t P[CHANNELS] = {0};
 uint8_t sign[2*CHANNELS][BUFFERSIZE/8] = {0};
 uint8_t disableSetting;
-uint8_t positive = 0;
-uint8_t crossingIndex = 0;
-uint16_t crossingPoint[8];
+uint8_t positive[3] = {0,0,0};
+uint8_t crossingIndex[3] = {0,0,0};
+uint16_t crossingPoint[3][8];
 uint8_t pinToTurnOff = 0;
 uint8_t pinToTurnOn = 0;
 
@@ -98,6 +98,39 @@ void takeData(uint32_t* buffer)
 		{
 			P[i] += data[indexCircBuffer][2*i]*data[indexCircBuffer][2*i+1];
 		}
+
+		for(uint8_t i = 0; i < CHANNELS*2;i++)
+		{
+			if(data[indexCircBuffer][i]> 0) setSign(i,indexCircBuffer, 1);
+			else setSign(i,indexCircBuffer, 0);
+		}
+
+
+		for(uint8_t v_channel = 0; v_channel < CHANNELS; v_channel++)
+		{
+			if(data[indexCircBuffer][2*v_channel+1]> 0)
+			{
+				if(positive[v_channel] == 0)
+				{
+					crossingPoint[v_channel][crossingIndex[v_channel]] = data[indexCircBuffer][2*v_channel] > 0 ? 1 : 0;
+					crossingIndex[v_channel] = (crossingIndex[v_channel]+1) % 8;
+					if(v_channel == 0)
+					{
+						uint8_t pins = PCF8574_getState();
+						pins &= (~pinToTurnOff);
+						pins |= pinToTurnOn;
+						PCF8574_setState(pins);
+						pinToTurnOn = 0;
+						pinToTurnOff = 0;
+					}
+				}
+				positive[v_channel] = 1;
+			}
+			else
+			{
+				positive[v_channel] = 0;
+			}
+		}
 		indexCircBuffer++;
 		if(indexCircBuffer == BUFFERSIZE) indexCircBuffer = 0;
 		for(uint8_t i = 0; i < CHANNELS;i++)
@@ -107,32 +140,10 @@ void takeData(uint32_t* buffer)
 		for(uint8_t i = 0; i < CHANNELS*2;i++)
 		{
 			RMS[i] -= data[(indexCircBuffer+correctionRMS)% BUFFERSIZE][i]*data[(indexCircBuffer+ correctionRMS)% BUFFERSIZE][i];
-			if(data[indexCircBuffer][i]> 0)
-			{
-				setSign(i,indexCircBuffer, 1);
-				if(positive == 0)
-				{
-					uint8_t pins = PCF8574_getState();
-					pins &= (~pinToTurnOff);
-					pins |= pinToTurnOn;
-					PCF8574_setState(pins);
-					pinToTurnOff = 0;
-					pinToTurnOff = 0;
-					crossingPoint[crossingIndex] = indexCircBuffer;
-					crossingIndex = (crossingIndex+1) % 8;
-				}
-				positive = 1;
-			}
-			else
-			{
-
-				setSign(i,indexCircBuffer, 0);
-				positive = 0;
-			}
-
 			data[indexCircBuffer][i] = -calibZeros[i];
 		}
 	}
+
 	for(uint8_t i = 0; i < CHANNELS;i++)
 	{
 		data[indexCircBuffer][2*i] += (uint16_t) buffer[i];
@@ -188,10 +199,10 @@ uint8_t isCapacitive(uint8_t channel)
 	int res = 0;
 		for(int i = 0; i < 8; i++)
 		{
-			if(data[crossingPoint[i]][channel*2] > 0) res++;
+			if(crossingPoint[channel][i] > 0) res++;
 			else res--;
 		}
-	return res;
+	return res > 0 ? 1 : 0;
 }
 
 

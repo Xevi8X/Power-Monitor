@@ -58,7 +58,7 @@ void searchCompensators()
 			compensators[i] = 0.0f;
 			printf("unconnected\n");
 		}
-		turnOffInZero(i);
+		PCF8574_turnOff(i);
 		HAL_Delay(300);
 	}
 	sendCompensatorsData();
@@ -199,7 +199,7 @@ float actualCompensatedPower()
 
 void compensate()
 {
-	if(state == 0 && fabs(getQ(0)) > precision)
+	if(state == 0 && fabs(getQ(0)) > 2*precision)
 	{
 		float Q_summed = getQ(0);
 		float Q_compensated = actualCompensatedPower();
@@ -215,6 +215,7 @@ void compensate()
 			res = chooseSetting(Q,Ind, ind_length);
 		}
 		softSwitch(res);
+		execCommand(101,0);
 	}
 }
 
