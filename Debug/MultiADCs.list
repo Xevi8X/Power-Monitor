@@ -35,15 +35,15 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING, OCTETS
  15 .debug_ranges 00000d18  00000000  00000000  00031c28  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_macro  0001a308  00000000  00000000  00032940  2**0
+ 16 .debug_macro  0001a338  00000000  00000000  00032940  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_line   00012e3e  00000000  00000000  0004cc48  2**0
+ 17 .debug_line   00012e3e  00000000  00000000  0004cc78  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    0008c5d5  00000000  00000000  0005fa86  2**0
+ 18 .debug_str    0008c642  00000000  00000000  0005fab6  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      00000050  00000000  00000000  000ec05b  2**0
+ 19 .comment      00000050  00000000  00000000  000ec0f8  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  00004f88  00000000  00000000  000ec0ac  2**2
+ 20 .debug_frame  00004f88  00000000  00000000  000ec148  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -6914,9 +6914,9 @@ void MX_USART1_UART_Init(void)
  8003570:	4b11      	ldr	r3, [pc, #68]	; (80035b8 <MX_USART1_UART_Init+0x4c>)
  8003572:	4a12      	ldr	r2, [pc, #72]	; (80035bc <MX_USART1_UART_Init+0x50>)
  8003574:	601a      	str	r2, [r3, #0]
-  huart1.Init.BaudRate = 115200;
+  huart1.Init.BaudRate = 9600;
  8003576:	4b10      	ldr	r3, [pc, #64]	; (80035b8 <MX_USART1_UART_Init+0x4c>)
- 8003578:	f44f 32e1 	mov.w	r2, #115200	; 0x1c200
+ 8003578:	f44f 5216 	mov.w	r2, #9600	; 0x2580
  800357c:	605a      	str	r2, [r3, #4]
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
  800357e:	4b0e      	ldr	r3, [pc, #56]	; (80035b8 <MX_USART1_UART_Init+0x4c>)
@@ -7017,7 +7017,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
     PA9     ------> USART1_TX
     PA10     ------> USART1_RX
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_9;
+    GPIO_InitStruct.Pin = USART_TXA9_Pin;
  8003610:	f44f 7300 	mov.w	r3, #512	; 0x200
  8003614:	613b      	str	r3, [r7, #16]
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -7026,13 +7026,13 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
  800361a:	2303      	movs	r3, #3
  800361c:	61fb      	str	r3, [r7, #28]
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+    HAL_GPIO_Init(USART_TXA9_GPIO_Port, &GPIO_InitStruct);
  800361e:	f107 0310 	add.w	r3, r7, #16
  8003622:	4619      	mov	r1, r3
  8003624:	481e      	ldr	r0, [pc, #120]	; (80036a0 <HAL_UART_MspInit+0xe0>)
  8003626:	f001 fb21 	bl	8004c6c <HAL_GPIO_Init>
 
-    GPIO_InitStruct.Pin = GPIO_PIN_10;
+    GPIO_InitStruct.Pin = USART_RXA10_Pin;
  800362a:	f44f 6380 	mov.w	r3, #1024	; 0x400
  800362e:	613b      	str	r3, [r7, #16]
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
@@ -7041,7 +7041,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
     GPIO_InitStruct.Pull = GPIO_NOPULL;
  8003634:	2300      	movs	r3, #0
  8003636:	61bb      	str	r3, [r7, #24]
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+    HAL_GPIO_Init(USART_RXA10_GPIO_Port, &GPIO_InitStruct);
  8003638:	f107 0310 	add.w	r3, r7, #16
  800363c:	4619      	mov	r1, r3
  800363e:	4818      	ldr	r0, [pc, #96]	; (80036a0 <HAL_UART_MspInit+0xe0>)
