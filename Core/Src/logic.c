@@ -197,11 +197,10 @@ float actualCompensatedPower()
 	return sum;
 }
 
-void compensate()
+void compensate(float Q_summed)
 {
-	if(state == 0 && fabs(getQ(0)) > 2*precision)
+	if(state == 0 && fabs(Q_summed) > precision)
 	{
-		float Q_summed = getQ(0);
 		float Q_compensated = actualCompensatedPower();
 		float Q = Q_summed - Q_compensated;
 
@@ -222,15 +221,11 @@ void compensate()
 uint8_t chooseSetting(float Q, Setting* tab, int length)
 {
 	uint8_t res = 0;
-	float diff = FLT_MAX;
-
-	for(int i = 0; i < length; i++)
+	int i = 0;
+	for(i = 0; i < length; i++)
 	{
-		if(fabs(Q + tab[i].aggregatedPower) < diff)
-		{
-			res = tab[i].switches;
-			diff = fabs(Q + tab[i].aggregatedPower);
-		}
+		if(Q + tab[i].aggregatedPower > 0) break;
 	}
-	return res;
+	if(i == length) i = length-1;
+	return tab[i].switches;
 }

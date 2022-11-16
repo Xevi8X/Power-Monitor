@@ -42,7 +42,7 @@ uint8_t calcDirectIndex(uint8_t sw, int mixTable[]);
 void freeSettings();
 void printConfigs();
 float actualCompensatedPower();
-void compensate();
+void compensate(float Q_summed);
 uint8_t chooseSetting(float Q, Setting* tab, int length);
 
 
